@@ -1,0 +1,8 @@
+# Benchmark Maneuver Waypoints File (UAVbook Chapter 8)
+# Format: id, pn, pe, h, action, param1, ...
+
+10, 0.0,   0.0,   100.0, SET_AIRSPEED, 25.0
+20, 1000.0, 0.0,   100.0
+30, 1000.0, 1000.0, 100.0
+40, 0.0,    1000.0, 100.0
+50, 0.0,    0.0,    100.0, GO_WAYPOINT, 10
