@@ -1,0 +1,346 @@
+
+import numpy as np
+from numpy import sin, cos
+
+
+def rot_matrix_axis(axis: np.ndarray = np.zeros(3), t: float = 0.0) -> np.ndarray:
+    """
+    Compute transformation matrix for rotation around an axis.
+
+    Parameters
+    ----------
+    axis : np.ndarray, optional
+        3-size array with rotation axis components (ux, uy, uz),
+        by defaultnp.zeros(3)
+    t : float, optional
+        rotation angle in rad, by default 0.0
+
+    Returns
+    -------
+    np.ndarray
+        3x3 transformation matrix
+    """
+    ux, uy, uz = axis / np.linalg.norm(axis)
+    R = np.array(
+        [
+            [
+                cos(t) + ux**2 * (1 - cos(t)),
+                ux * uy * (1 - cos(t)) - uz * sin(t),
+                ux * uz * (1 - cos(t)) + uy * sin(t),
+            ],
+            [
+                uy * ux * (1 - cos(t)) + uz * sin(t),
+                cos(t) + uy**2 * (1 - cos(t)),
+                uy * uz * (1 - cos(t)) - ux * sin(t),
+            ],
+            [
+                uz * ux * (1 - cos(t)) - uy * sin(t),
+                uz * uy * (1 - cos(t)) + ux * sin(t),
+                cos(t) + uz**2 * (1 - cos(t)),
+            ],
+        ]
+    )
+    return R
+
+
+def rot_matrix_zyx(euler: np.ndarray = np.zeros(3)) -> np.ndarray:
+    """
+    Compute transformation matrix from vehicle frame to body frame (R^b_v)
+    with the aircraft attitude expressed as euler angles using the Z-Y-X
+    rotation sequence.
+
+    Parameters
+    ----------
+    euler : np.ndarray, optional
+        3-size array with euler angles [roll, pitch, yaw] in rad,
+        by default np.zeros(3)
+
+    Returns
+    -------
+    np.ndarray
+        3x3 transformation matrix
+    """
+    r = euler[0]
+    p = euler[1]
+    y = euler[2]
+    sr = sin(r)
+    cr = cos(r)
+    sp = sin(p)
+    cp = cos(p)
+    sy = sin(y)
+    cy = cos(y)
+    R_vb = np.zeros((3, 3))
+    R_vb[0, 0] = cp * cy
+    R_vb[0, 1] = cp * sy
+    R_vb[0, 2] = -sp
+    R_vb[1, 0] = sr * sp * cy - cr * sy
+    R_vb[1, 1] = sr * sp * sy + cr * cy
+    R_vb[1, 2] = sr * cp
+    R_vb[2, 0] = cr * sp * cy + sr * sy
+    R_vb[2, 1] = cr * sp * sy - sr * cy
+    R_vb[2, 2] = cr * cp
+    return R_vb
+
+
+def rot_matrix_quat(quat: np.ndarray = np.array([1, 0, 0, 0])) -> np.ndarray:
+    """
+    Compute transformation matrix from vehicle frame to body frame (R^b_v)
+    with the aircraft attitude expressed as quaternions.
+
+    Parameters
+    ----------
+    quat : np.ndarray, optional
+        4-size array with aircraft's orientation quaternions [q0, q1, q2, q3],
+        by default np.array([1, 0, 0, 0])
+
+    Returns
+    -------
+    np.ndarray
+        3x3 transformation matrix
+    """
+    q0 = quat[0]
+    q1 = quat[1]
+    q2 = quat[2]
+    q3 = quat[3]
+    R_vb = np.zeros((3, 3))
+    R_vb[0, 0] = 1.0 - 2.0 * (q2 * q2 + q3 * q3)
+    R_vb[0, 1] = 2.0 * (q1 * q2 + q0 * q3)
+    R_vb[0, 2] = 2.0 * (q1 * q3 - q0 * q2)
+    R_vb[1, 0] = 2.0 * (q1 * q2 - q0 * q3)
+    R_vb[1, 1] = 1.0 - 2.0 * (q1 * q1 + q3 * q3)
+    R_vb[1, 2] = 2.0 * (q2 * q3 + q0 * q1)
+    R_vb[2, 0] = 2.0 * (q1 * q3 + q0 * q2)
+    R_vb[2, 1] = 2.0 * (q2 * q3 - q0 * q1)
+    R_vb[2, 2] = 1.0 - 2.0 * (q1 * q1 + q2 * q2)
+    return R_vb
+
+
+def rot_matrix_wind(alpha: float, beta: float) -> np.ndarray:
+    """Compute transformation matrix from wind frame to body frame (R^b_w).
+
+    Parameters
+    ----------
+    alpha : float
+        angle of attack in rads
+    beta : float
+        side-slip angle in rads
+
+    Returns
+    -------
+    np.ndarray
+        3x3 transformation matrix
+    """
+    sa = np.sin(alpha)
+    ca = np.cos(alpha)
+    sb = np.sin(beta)
+    cb = np.sin(beta)
+    R_wb = np.zeros((3, 3))
+    R_wb[0, 0] = cb * ca
+    R_wb[0, 1] = -sb * ca
+    R_wb[0, 2] = -sa
+    R_wb[1, 0] = sb
+    R_wb[1, 1] = cb
+    R_wb[1, 2] = 0.0
+    R_wb[2, 0] = cb * sa
+    R_wb[2, 1] = -sb * sa
+    R_wb[2, 2] = ca
+    return R_wb
+
+
+def rotate(
+    R: np.ndarray = np.eye(3),
+    origin: np.ndarray = np.zeros(3),
+    point: np.ndarray = np.zeros(3),
+) -> np.ndarray:
+    """Rotate a point around an origin using a given rotation matrix.
+
+    Parameters
+    ----------
+    R : np.ndarray, optional
+        3x3 rotation matrix, by default np.eye(3)
+    origin : np.ndarray, optional
+        3-element array representing the origin, by default np.zeros(3)
+    point : np.ndarray, optional
+        3-element array representing the point to be rotated,
+        by default np.zeros(3)
+
+    Returns
+    -------
+    np.ndarray
+        3-element array representing the rotated point.
+    """
+    return origin + np.dot(R.T, (point - origin))
+
+
+def rotate_points(
+    R: np.ndarray = np.eye(3),
+    origin: np.ndarray = np.zeros(3),
+    points: np.ndarray = np.zeros(3),
+) -> np.ndarray:
+    """Rotate multiple points around an origin using a given rotation matrix.
+
+    Parameters
+    ----------
+    R : np.ndarray, optional
+        3x3 rotation matrix, by default np.eye(3)
+    origin : np.ndarray, optional
+        3-element array representing the origin, by default np.zeros(3)
+    points : np.ndarray, optional
+        N-by-3 size array of N points to be rotated, by default np.zeros(3)
+
+    Returns
+    -------
+    np.ndarray
+        N-by-3 size array of N rotated points
+    """
+    N = points.shape[0]
+    rot_points = np.zeros((N, 3))
+    for k in range(N):
+        rot_points[k, :] = rotate(R, origin, points[k, :])
+    return rot_points
+
+
+def multi_rotation(
+    values: np.ndarray = np.zeros((100, 3)),
+    angles: np.ndarray = np.zeros((100, 3)),
+    reverse: bool = False,
+) -> np.ndarray:
+    """
+    Rotate 3D vectors using Euler angles (ZYX sequence).
+
+    Parameters
+    ----------
+    values : np.ndarray
+        N-by-3 array of vectors or points to rotate.
+    angles : np.ndarray, optional
+        N-by-3 array of Euler angles (roll, pitch, yaw) in radians,
+        by default np.zeros((100, 3))
+    reverse : bool, optional
+        If True, apply the inverse rotation (R^T), by default False.
+
+    Returns
+    -------
+    np.ndarray
+        N-by-3 size array of N rotated values.
+
+    Raises
+    ------
+    ValueError
+         If angles and points do not have the same shape.
+    """
+    angles = np.atleast_2d(angles)
+    values = np.atleast_2d(values)
+    if angles.shape != values.shape:
+        raise ValueError("Values and angles must have same shape")
+
+    R_all = np.array([rot_matrix_zyx(a) for a in angles])
+
+    if reverse:
+        R_all = R_all.transpose(0, 2, 1)  # Transpose each rotation matrix
+
+    rotated = np.einsum("ijk,ik->ij", R_all, values)
+    return rotated
+
+
+def ned2xyz(ned: np.ndarray = np.zeros(3)) -> np.ndarray:
+    """
+    Convert coordinates from the NED (North-East-Down) frame to the XYZ frame.
+
+    Parameters
+    ----------
+    ned_coords : np.ndarray, optional
+        Coordinates in the NED frame. This can be a 1D array of shape (3,) or
+        a 2D array of shape (N, 3).
+        Default is np.zeros(3).
+
+    Returns
+    -------
+    np.ndarray
+        Coordinates in the XYZ frame, with the same shape as the input.
+    """
+    ned = np.atleast_2d(ned)  # Ensure 2D for uniform handling
+
+    xyz = np.zeros((ned.shape[0], 3))
+    xyz[:, 0] = ned[:, 1]
+    xyz[:, 1] = ned[:, 0]
+    xyz[:, 2] = -ned[:, 2]
+
+    return np.squeeze(xyz)  # Maintain shape consistency with input
+
+
+def euler2quat(att: np.ndarray) -> np.ndarray:
+    """
+    Convert Euler angles (roll, pitch, yaw) to quaternion representation.
+
+    Parameters
+    ----------
+    att : np.ndarray
+        Array of Euler angles (roll, pitch, yaw) in radians.
+        Input can be a 1D array of shape (3,) or a 2D array of shape (N, 3).
+
+    Returns
+    -------
+    np.ndarray
+        Quaternion(s) as a 1D array of shape (4,) for a single set of
+        Euler angles, or a 2D array of shape (N, 4) for multiple sets.
+    """
+    att = np.atleast_2d(att)  # Ensure 2D for consistent processing
+
+    r = att[:, 0]
+    sr = sin(0.5 * r)
+    cr = cos(0.5 * r)
+    p = att[:, 1]
+    sp = sin(0.5 * p)
+    cp = cos(0.5 * p)
+    y = att[:, 2]
+    sy = sin(0.5 * y)
+    cy = cos(0.5 * y)
+
+    q = np.zeros((att.shape[0], 4))
+    q[:, 0] = cr * cp * cy + sr * sp * sy
+    q[:, 1] = sr * cp * cy - cr * sp * sy
+    q[:, 2] = cr * sp * cy + sr * cp * sy
+    q[:, 3] = cr * cp * sy - sr * sp * cy
+
+    return np.squeeze(q)  # Adjust shape based on input
+
+
+def quat2euler(q: np.ndarray) -> np.ndarray:
+    """
+    Convert quaternion(s) to Euler angles.
+
+    Parameters
+    ----------
+    q : np.ndarray
+        Input quaternion(s) as a 1D array of shape (4,) or a 2D array
+        of shape (N, 4).
+
+    Returns
+    -------
+    np.ndarray
+        Euler angles (roll, pitch, yaw) in radians. Output shape is (3,)
+        for a single quaternion or (N, 3) for multiple.
+
+    Notes
+    -----
+    Angles are computed using the ZYX sequence:
+    yaw (z-axis), pitch (y-axis), roll (x-axis).
+    """
+    q = np.atleast_2d(q)  # Ensure q is at least 2D (N, 4)
+
+    q0 = q[:, 0]
+    q1 = q[:, 1]
+    q2 = q[:, 2]
+    q3 = q[:, 3]
+
+    att = np.zeros((q.shape[0], 3))
+    att[:, 0] = np.arctan2(
+        2.0 * (q0 * q1 + q2 * q3), (q0 * q0 - q1 * q1 - q2 * q2 + q3 * q3)
+    )
+    att[:, 1] = np.arcsin(2.0 * (q0 * q2 - q1 * q3))
+    att[:, 2] = np.arctan2(
+        2.0 * (q0 * q3 + q1 * q2), (q0 * q0 + q1 * q1 - q2 * q2 - q3 * q3)
+    )
+
+    return np.squeeze(att)  # Remove axes of length 1 (for single quaternion input)
+

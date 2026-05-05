@@ -1,0 +1,14 @@
+# Simple discussion mission for quick demo
+# Format: id, pn, pe, h, action, param1, param2, ...
+#
+# Behavior:
+# - Initial entry segment from waypoint 10 to waypoint 20
+# - Then a clean rectangular loop: 20 -> 30 -> 40 -> 50 -> 20
+# - Returns to waypoint 20 (not the start waypoint 10)
+# - No diagonal closure segment, so the top-view path stays clean for discussion
+
+10, 0.0, 0.0, 30.0
+20, 0.0, 200.0, 30.0
+30, 400.0, 200.0, 30.0
+40, 400.0, 400.0, 30.0
+50, 0.0, 400.0, 30.0, GO_WAYPOINT, 20
