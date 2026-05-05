@@ -1,11 +1,4 @@
 
-"""
- Copyright (c) 2024 Pablo Ramirez Escudero
-
- This software is released under the MIT License.
- https://opensource.org/licenses/MIT
-"""
-
 import numpy as np
 
 from chapter2.autopilot_design_parameters import AutopilotDesignParameters
