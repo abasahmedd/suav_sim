@@ -13,7 +13,7 @@
 - Interactive GUI visualizations for attitude, position, and mission dashboards
 
 The project originated from a thesis on fixed‑wing UAV simulation and has been refactored into clean, reusable modules suitable for academic research and rapid prototyping.
-
+![alt text](image.png)
 ## Repository Structure
 
 ```
